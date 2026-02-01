@@ -8,14 +8,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from fx_bot import format_message
 
-msg = format_message({"EUR/USD": 1.2345}, tz="UTC")
-print(msg)
-if (
-    "FX Rates" not in msg
-    or "EUR/USD" not in msg
-    or not re.search(r"\d{4}-\d{2}-\d{2}", msg)
-):
-    print("Message validation failed", file=sys.stderr)
-    sys.exit(1)
-
+print("Deprecated: Use `pytest` instead to validate formatting and behavior.")
+# Keep exit code 0 for backwards compatibility in CI where this used to run
 sys.exit(0)

@@ -25,10 +25,13 @@ def test_normalize_pairs():
 
 
 def test_fetch_rates_success(monkeypatch):
+    monkeypatch.setenv("EXCHANGERATE_ACCESS_KEY", "dummy")
+
     def fake_get(url, params=None, timeout=None):
         assert url == fx_bot.API_URL
         base = params.get("base")
         symbols = params.get("symbols")
+        assert params.get("access_key") == "dummy"
         if base == "EUR":
             return DummyResp({"rates": {"USD": 1.07, "AZN": 1.91}})
         if base == "USD":
@@ -44,6 +47,8 @@ def test_fetch_rates_success(monkeypatch):
 
 
 def test_fetch_rates_api_error(monkeypatch):
+    monkeypatch.setenv("EXCHANGERATE_ACCESS_KEY", "dummy")
+
     def fake_get(url, params=None, timeout=None):
         return DummyResp({"error": "bad"}, status=500)
 
