@@ -1,6 +1,8 @@
 name: FX Notifier
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "0 9 * * 1-5" # Run at 9:00 AM UTC on weekdays
   workflow_dispatch: # Allows manual triggering
