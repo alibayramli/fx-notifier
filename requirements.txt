@@ -1,4 +1,3 @@
 requests
-pyTelegramBotAPI
-pytest
+python-telegram-bot
 python-dotenv

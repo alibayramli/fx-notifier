@@ -2,30 +2,26 @@ name: FX Notifier
 
 on:
   schedule:
-    - cron: "0 5 * * 1-5" # Weekdays at 09:00 Baku (UTC+4) => 05:00 UTC
-  workflow_dispatch: {}
-  push:
-    branches: [main]
+    - cron: "0 9 * * 1-5" # Run at 9:00 AM UTC on weekdays
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
-  build:
+  send-notification:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: '3.10' # Specify a Python version
+
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run tests
-        run: python -m pytest -q
-      - name: Send FX notification
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        run: pip install -r requirements.txt
+
+      - name: Run FX Notifier
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python fx_bot.py
+        run: python fx_bot.py
