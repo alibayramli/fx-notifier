@@ -6,6 +6,7 @@ import os
 # Add the parent directory to the sys.path to allow imports from the main project folder
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import asyncio
 from fx_bot import get_fx_rates, format_message, send_telegram_message
 
 class TestFxBot(unittest.TestCase):
@@ -52,8 +53,10 @@ class TestFxBot(unittest.TestCase):
     @patch('os.environ.get', return_value=None)
     def test_send_telegram_message_missing_env_vars(self, mock_env_get):
         """Test that send_telegram_message raises a ValueError if environment variables are not set."""
-        with self.assertRaises(ValueError):
-            send_telegram_message("Test message")
+        async def test_async():
+            with self.assertRaises(ValueError):
+                await send_telegram_message("Test message")
+        asyncio.run(test_async())
 
 if __name__ == '__main__':
     unittest.main()
