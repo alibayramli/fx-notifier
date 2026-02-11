@@ -23,7 +23,6 @@ def test_get_fx_rates_success(mock_get):
         "rates": {
             "USD": 1.088,
             "HUF": 393.4,
-            "AZN": 1.8494,
         },
     }
     mock_response.raise_for_status.return_value = None
@@ -36,7 +35,7 @@ def test_get_fx_rates_success(mock_get):
 
 
 def test_format_message():
-    """format_message outputs a correctly formatted, ordered message."""
+    """format_message outputs a correctly formatted, ordered message and marks AZN as derived."""
     rates_data = {
         "amount": 1.0,
         "base": "EUR",
@@ -44,17 +43,21 @@ def test_format_message():
         "rates": {
             "USD": 1.088,
             "HUF": 393.4,
-            "AZN": 1.8494,
+            # AZN intentionally omitted here because our code derives it
         },
     }
 
     message = format_message(rates_data)
 
+    # Build expected string based on peg 1.7 -> AZN = 1.088 * 1.7
+    derived_azn = round(1.088 * 1.7, 6)
     expected = (
         "FX Rates for 2024-07-26 (Base: EUR):\n"
-        "- USD: 1.088\n"
-        "- HUF: 393.4\n"
-        "- AZN: 1.8494"
+        f"- USD: 1.088\n"
+        f"- HUF: 393.4\n"
+        f"- AZN: {derived_azn} (derived)\n\n"
+        "Source: Frankfurter API (frankfurter.app). AZN is derived via EUR→USD × USD→AZN peg.\n"
+        "USD→AZN peg: 1.7"
     )
 
     assert message == expected
@@ -62,10 +65,13 @@ def test_format_message():
 
 @patch("os.environ.get", return_value=None)
 def test_send_telegram_message_missing_env_vars(mock_env_get):
-    """send_telegram_message raises ValueError when env vars are missing."""
+    """
+    send_telegram_message should fail fast when TELEGRAM_* env vars are missing.
+    The current implementation raises RuntimeError via require_env().
+    """
 
     async def runner():
-        with pytest.raises(ValueError):
+        with pytest.raises(RuntimeError):
             await send_telegram_message("Test message")
 
     asyncio.run(runner())
