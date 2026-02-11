@@ -9,47 +9,61 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-# Load .env (required)
+# Load .env if present (local dev only; CI is unaffected)
 load_dotenv()
 
 
 # ------------------------------
-# Strict env loading (no defaults)
+# Errors
+# ------------------------------
+class FXServiceError(Exception):
+    """Domain-level FX errors."""
+
+
+class ConfigError(RuntimeError):
+    """Raised when required configuration is missing."""
+
+
+# ------------------------------
+# Config helpers
 # ------------------------------
 def require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
+        raise ConfigError(f"Missing required environment variable: {name}")
     return value
 
 
-FRANKFURTER_API_URL = require_env("FRANKFURTER_API_URL")
-BASE_CURRENCY = require_env("BASE_CURRENCY")
-
-API_CURRENCIES = [
-    c.strip() for c in require_env("API_CURRENCIES").split(",") if c.strip()
-]
-
-REPORT_CURRENCIES = [
-    c.strip() for c in require_env("REPORT_CURRENCIES").split(",") if c.strip()
-]
-
-USD_AZN_PEG = float(require_env("USD_AZN_PEG"))
+def optional_env(name: str, default: str) -> str:
+    return os.environ.get(name, default)
 
 
-class FXServiceError(Exception):
-    pass
-
-
-@dataclass(frozen=True)
+# ------------------------------
+# FX Service
+# ------------------------------
+@dataclass
 class FXService:
     api_url: str
     base_currency: str
     api_currencies: Iterable[str]
     usd_azn_peg: float
 
+    @classmethod
+    def from_env(cls) -> "FXService":
+        """
+        Build service from environment variables.
+        This is the ONLY place where env vars are required.
+        """
+        return cls(
+            api_url=require_env("FRANKFURTER_API_URL"),
+            base_currency=require_env("BASE_CURRENCY"),
+            api_currencies=tuple(
+                c.strip() for c in require_env("API_CURRENCIES").split(",") if c.strip()
+            ),
+            usd_azn_peg=float(require_env("USD_AZN_PEG")),
+        )
+
     def get_fx_rates(self, timeout: int = 10) -> Dict:
-        """Fetch FX rates from Frankfurter API."""
         params = {
             "from": self.base_currency,
             "to": ",".join(self.api_currencies),
@@ -57,83 +71,85 @@ class FXService:
 
         response = requests.get(self.api_url, params=params, timeout=timeout)
         response.raise_for_status()
-
         data = response.json()
+
         if "rates" not in data:
-            raise FXServiceError("API response missing 'rates' field")
+            raise FXServiceError("FX response missing 'rates' field")
 
         return data
 
     def derive_azn_rate(self, rates: Dict[str, float]) -> float:
-        """
-        Derive EUR→AZN using:
-        EUR/AZN = EUR/USD × USD/AZN
-        """
         eur_usd = rates.get("USD")
         if eur_usd is None:
-            raise FXServiceError("USD rate missing — cannot derive AZN")
+            raise FXServiceError("USD rate missing; cannot derive AZN")
 
         try:
-            eur_usd = float(eur_usd)
+            derived = float(eur_usd) * self.usd_azn_peg
         except (TypeError, ValueError):
-            raise FXServiceError("USD rate is not numeric")
+            raise FXServiceError("Invalid USD rate; cannot derive AZN")
 
-        return round(eur_usd * self.usd_azn_peg, 6)
+        return round(derived, 6)
 
-    def normalize_rates(self, rates_data: Dict) -> Dict[str, float]:
-        """Merge API rates with derived rates."""
-        rates = {k: float(v) for k, v in rates_data["rates"].items()}
+    def normalize_rates(
+        self, rates_data: Dict, report_currencies: Iterable[str]
+    ) -> Dict[str, float]:
+        rates = {k: float(v) for k, v in rates_data.get("rates", {}).items()}
 
-        if "AZN" in REPORT_CURRENCIES:
+        if "AZN" in report_currencies:
             rates["AZN"] = self.derive_azn_rate(rates)
 
         return rates
 
 
 # ------------------------------
-# Compatibility helpers (tests & workflow)
+# Public helpers (used by tests)
 # ------------------------------
 def get_fx_rates() -> Dict:
-    service = FXService(
-        api_url=FRANKFURTER_API_URL,
-        base_currency=BASE_CURRENCY,
-        api_currencies=API_CURRENCIES,
-        usd_azn_peg=USD_AZN_PEG,
-    )
+    """
+    Compatibility wrapper for tests.
+    """
+    service = FXService.from_env()
     return service.get_fx_rates()
 
 
 def format_message(rates_data: Dict, service: Optional[FXService] = None) -> str:
     if service is None:
-        service = FXService(
-            api_url=FRANKFURTER_API_URL,
-            base_currency=BASE_CURRENCY,
-            api_currencies=API_CURRENCIES,
-            usd_azn_peg=USD_AZN_PEG,
-        )
+        service = FXService.from_env()
+
+    report_currencies = tuple(
+        c.strip()
+        for c in optional_env("REPORT_CURRENCIES", "USD,HUF,AZN").split(",")
+        if c.strip()
+    )
 
     date = rates_data.get("date", "N/A")
-    normalized = service.normalize_rates(rates_data)
+    normalized = service.normalize_rates(rates_data, report_currencies)
 
     lines = [f"FX Rates for {date} (Base: {service.base_currency}):"]
 
-    for currency in REPORT_CURRENCIES:
+    for currency in report_currencies:
         value = normalized.get(currency)
         if value is None:
             continue
+
         suffix = " (derived)" if currency == "AZN" else ""
         lines.append(f"- {currency}: {value}{suffix}")
 
-    lines.append("")
-    lines.append(
-        "Source: Frankfurter API (frankfurter.app). "
-        "AZN is derived via EUR→USD × USD→AZN peg."
+    lines.extend(
+        [
+            "",
+            "Source: Frankfurter API (frankfurter.app). "
+            "AZN is derived via EUR->USD * USD->AZN peg.",
+            f"Configured USD->AZN peg: {service.usd_azn_peg}",
+        ]
     )
-    lines.append(f"USD→AZN peg: {service.usd_azn_peg}")
 
     return "\n".join(lines)
 
 
+# ------------------------------
+# Telegram
+# ------------------------------
 async def send_telegram_message(message: str) -> None:
     bot_token = require_env("TELEGRAM_BOT_TOKEN")
     chat_id = require_env("TELEGRAM_CHAT_ID")
@@ -143,32 +159,31 @@ async def send_telegram_message(message: str) -> None:
     try:
         await bot.send_message(chat_id=chat_id, text=message)
     except TypeError:
-        # sync fallback
+        # Fallback for sync telegram implementations
         await asyncio.to_thread(bot.send_message, chat_id, message)
 
 
 # ------------------------------
-# Entrypoint
+# CLI entrypoint
 # ------------------------------
-async def _main_async():
-    service = FXService(
-        api_url=FRANKFURTER_API_URL,
-        base_currency=BASE_CURRENCY,
-        api_currencies=API_CURRENCIES,
-        usd_azn_peg=USD_AZN_PEG,
-    )
+async def _main_async() -> None:
+    service = FXService.from_env()
 
     try:
         rates_data = service.get_fx_rates()
-        message = format_message(rates_data, service)
-        print(message)
+        message = format_message(rates_data, service=service)
+
+        print(message)  # CI visibility
         await send_telegram_message(message)
+
         print("✅ Notification sent successfully")
-    except (requests.exceptions.RequestException, FXServiceError, RuntimeError) as e:
-        print(f"❌ Error: {e}")
+
+    except (requests.RequestException, FXServiceError, ConfigError) as exc:
+        print(f"❌ Error: {exc}")
+        raise
 
 
-def main():
+def main() -> None:
     asyncio.run(_main_async())
 
 

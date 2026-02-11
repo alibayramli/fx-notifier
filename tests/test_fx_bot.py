@@ -12,9 +12,29 @@ sys.path.insert(0, PROJECT_ROOT)
 from fx_bot import get_fx_rates, format_message, send_telegram_message
 
 
+# -----------------------------
+# Fixtures
+# -----------------------------
+@pytest.fixture
+def fx_env(monkeypatch):
+    """
+    Provides all required FXService environment variables for testing.
+    """
+    monkeypatch.setenv("FRANKFURTER_API_URL", "https://api.frankfurter.app/latest")
+    monkeypatch.setenv("BASE_CURRENCY", "EUR")
+    monkeypatch.setenv("API_CURRENCIES", "USD,HUF")
+    monkeypatch.setenv("USD_AZN_PEG", "1.7")
+    monkeypatch.setenv("REPORT_CURRENCIES", "USD,HUF,AZN")
+
+
+# -----------------------------
+# Tests
+# -----------------------------
 @patch("fx_bot.requests.get")
-def test_get_fx_rates_success(mock_get):
-    """get_fx_rates returns expected data on successful API call."""
+def test_get_fx_rates_success(mock_get, fx_env):
+    """
+    get_fx_rates returns expected data on successful API call.
+    """
     mock_response = Mock()
     mock_response.json.return_value = {
         "amount": 1.0,
@@ -34,8 +54,10 @@ def test_get_fx_rates_success(mock_get):
     assert rates_data["rates"]["USD"] == 1.088
 
 
-def test_format_message():
-    """format_message outputs a correctly formatted, ordered message and marks AZN as derived."""
+def test_format_message(fx_env):
+    """
+    format_message outputs a correctly formatted message and marks AZN as derived.
+    """
     rates_data = {
         "amount": 1.0,
         "base": "EUR",
@@ -43,34 +65,37 @@ def test_format_message():
         "rates": {
             "USD": 1.088,
             "HUF": 393.4,
-            # AZN intentionally omitted here because our code derives it
+            # AZN intentionally omitted — it is derived
         },
     }
 
     message = format_message(rates_data)
 
-    # Build expected string based on peg 1.7 -> AZN = 1.088 * 1.7
     derived_azn = round(1.088 * 1.7, 6)
+
     expected = (
         "FX Rates for 2024-07-26 (Base: EUR):\n"
-        f"- USD: 1.088\n"
-        f"- HUF: 393.4\n"
+        "- USD: 1.088\n"
+        "- HUF: 393.4\n"
         f"- AZN: {derived_azn} (derived)\n\n"
-        "Source: Frankfurter API (frankfurter.app). AZN is derived via EUR→USD × USD→AZN peg.\n"
-        "USD→AZN peg: 1.7"
+        "Source: Frankfurter API (frankfurter.app). "
+        "AZN is derived via EUR->USD * USD->AZN peg.\n"
+        "Configured USD->AZN peg: 1.7"
     )
 
     assert message == expected
 
 
-@patch("os.environ.get", return_value=None)
-def test_send_telegram_message_missing_env_vars(mock_env_get):
+def test_send_telegram_message_missing_env_vars(monkeypatch):
     """
     send_telegram_message should fail fast when TELEGRAM_* env vars are missing.
-    The current implementation raises RuntimeError via require_env().
     """
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
 
     async def runner():
+        import pytest
+
         with pytest.raises(RuntimeError):
             await send_telegram_message("Test message")
 
