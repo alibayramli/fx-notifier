@@ -4,8 +4,16 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 6 * * 1-5" # 06:00 UTC weekdays
+    - cron: "0 6 * * 1-5" # 06:00 UTC = 10:00 Baku time, weekdays
   workflow_dispatch:
+
+env:
+  # FXService configuration (shared between jobs)
+  FRANKFURTER_API_URL: https://api.frankfurter.app/latest
+  BASE_CURRENCY: EUR
+  API_CURRENCIES: USD,HUF
+  REPORT_CURRENCIES: USD,HUF,AZN
+  USD_AZN_PEG: 1.7
 
 jobs:
   test:
@@ -57,4 +65,5 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # FX env vars from top-level 'env' are automatically inherited
         run: python fx_bot.py
