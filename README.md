@@ -5,8 +5,10 @@ FX Notifier is a small Python utility that fetches foreign-exchange rates from t
 ## Features
 
 - Fetches FX rates (e.g. `EUR/USD`, `EUR/HUF`) from the Frankfurter API
-- Derives `EUR/AZN` using a fixed USD→AZN peg (EUR/AZN = EUR/USD × USD/AZN)
+- Derives `EUR/AZN` using a fixed USD->AZN peg (EUR/AZN = EUR/USD * USD/AZN)
 - Sends daily notifications to a Telegram channel
+- Retries transient API/Telegram failures with backoff
+- Validates required configuration values at startup
 - Scheduled to run on weekdays via GitHub Actions
 - Includes unit tests with `pytest`
 - Uses environment-based configuration
@@ -27,7 +29,7 @@ cd fx-notifier
 
 2. Create and activate a virtual environment, then install dependencies:
 
-Unix / macOS (bash / zsh)
+Unix / macOS (bash / zsh):
 
 ```bash
 python -m venv env
@@ -35,7 +37,7 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
-Windows (PowerShell / CMD):
+Windows (PowerShell):
 
 ```powershell
 python -m venv env
@@ -51,16 +53,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 Command Prompt (CMD):
 
-```
+```cmd
 python -m venv env
 env\Scripts\activate.bat
 pip install -r requirements.txt
-```
-
-After activation, your terminal prompt should be prefixed with:
-
-```text
-(env)
 ```
 
 ## Configuration
@@ -100,17 +96,33 @@ python fx_bot.py
 Run the test suite:
 
 ```bash
-pytest
+python -m pytest -q tests
+```
+
+Run the same verification checks used by CI:
+
+Unix / macOS:
+
+```bash
+bash scripts/run_checks.sh
+```
+
+Windows (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_checks.ps1
 ```
 
 ## GitHub Actions (CI / Scheduled Runs)
 
-The project includes a GitHub Actions workflow that runs on weekdays. To enable it, add the following repository secrets:
+The project includes a GitHub Actions workflow that runs on weekdays. The test job uses `scripts/run_checks.sh`, so local and CI checks stay aligned.
+
+To enable notifications, add the following repository secrets:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 
-Add them at: Settings → Secrets and variables → Actions
+Add them at: Settings -> Secrets and variables -> Actions
 
 The workflow definition is located at `.github/workflows/fx-notifier.yml`.
 
@@ -120,4 +132,4 @@ Contributions, bug reports and feature requests are welcome. Please open an issu
 
 ## License
 
-MIT — use it, fork it, improve it
+MIT - use it, fork it, improve it
