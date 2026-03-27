@@ -1,62 +1,71 @@
 # fx-notifier
 
-FX Notifier is a small Python utility that fetches foreign-exchange rates from the Frankfurter API and sends daily notifications to a Telegram channel.
+FX Notifier is a packaged Python application that fetches foreign-exchange rates from the Frankfurter API and sends formatted Telegram notifications.
 
 ## Features
 
-- Fetches FX rates (e.g. `EUR/USD`, `EUR/HUF`) from the Frankfurter API
-- Derives `EUR/AZN` using a fixed USD->AZN peg (EUR/AZN = EUR/USD * USD/AZN)
-- Sends daily notifications to a Telegram channel
-- Retries transient API/Telegram failures with backoff
-- Validates required configuration values at startup
-- Scheduled to run on weekdays via GitHub Actions
-- Includes unit tests with `pytest`
-- Uses environment-based configuration
+- `src/` layout with clear boundaries for config, domain errors, infrastructure adapters, services, and app workflows
+- Single source of truth for packaging, test, lint, and type-check configuration in `pyproject.toml`
+- Installable CLI via `fx-notifier`
+- Retries transient API and Telegram failures with backoff
+- Scheduled weekday delivery through GitHub Actions
+- Unit tests plus lint and static type checks
+
+## Repository Layout
+
+```text
+fx-notifier/
+|-- pyproject.toml
+|-- src/
+|   `-- fx_notifier/
+|       |-- __main__.py       # CLI/module entrypoint
+|       |-- config.py         # Environment parsing and typed settings
+|       |-- app/
+|       |   `-- workflows.py  # Application orchestration
+|       |-- domain/
+|       |   `-- errors.py     # Domain and configuration errors
+|       |-- infrastructure/
+|       |   |-- frankfurter.py
+|       |   `-- telegram.py
+|       `-- services/
+|           |-- fx.py
+|           `-- reporting.py
+|-- scripts/
+|   |-- run_checks.sh
+|   `-- run_checks.ps1
+`-- tests/
+    |-- conftest.py
+    `-- unit/
+```
 
 ## Requirements
 
-- Python 3.8+
-- The packages listed in `requirements.txt`
+- Python 3.10+
 
 ## Installation
 
-1. Clone the repository:
+For development:
 
 ```bash
-git clone https://github.com/alibayramli/fx-notifier.git
-cd fx-notifier
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .[dev]
 ```
 
-2. Create and activate a virtual environment, then install dependencies:
+Windows PowerShell:
 
-Unix / macOS (bash / zsh):
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .[dev]
+```
+
+For runtime-only installation:
 
 ```bash
-python -m venv env
-source env/bin/activate
-pip install -r requirements.txt
-```
-
-Windows (PowerShell):
-
-```powershell
-python -m venv env
-env\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-Note: If script execution is blocked, run this once:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-Command Prompt (CMD):
-
-```cmd
-python -m venv env
-env\Scripts\activate.bat
-pip install -r requirements.txt
+python -m pip install .
 ```
 
 ## Configuration
@@ -64,10 +73,10 @@ pip install -r requirements.txt
 Copy the environment template and fill in the values:
 
 ```bash
-cp env.template .env    # On Windows: copy env.template .env
+cp env.template .env
 ```
 
-Example `.env` (fill with your values):
+Example `.env`:
 
 ```env
 TELEGRAM_BOT_TOKEN=your_bot_token
@@ -79,57 +88,41 @@ REPORT_CURRENCIES=USD,HUF,AZN
 USD_AZN_PEG=1.7
 ```
 
-Notes:
-
-- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are required for sending messages
-- `API_CURRENCIES` should list comma-separated currencies to fetch from the API
-- `REPORT_CURRENCIES` lists currencies to include in the report (including any derived ones)
-
 ## Usage
 
-Send a manual/test notification:
+Run the installed CLI:
 
 ```bash
-python fx_bot.py
+fx-notifier
 ```
 
-Run the test suite:
+Module entrypoint also works after installation:
 
 ```bash
-python -m pytest -q tests
+python -m fx_notifier
 ```
 
-Run the same verification checks used by CI:
-
-Unix / macOS:
+Run the quality gate locally:
 
 ```bash
 bash scripts/run_checks.sh
 ```
 
-Windows (PowerShell):
+Windows PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_checks.ps1
 ```
 
-## GitHub Actions (CI / Scheduled Runs)
+## GitHub Actions
 
-The project includes a GitHub Actions workflow that runs on weekdays. The test job uses `scripts/run_checks.sh`, so local and CI checks stay aligned.
+The workflow runs the quality gate on pushes and pull requests, then sends notifications only for scheduled and manual runs.
 
-To enable notifications, add the following repository secrets:
+Required repository secrets:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 
-Add them at: Settings -> Secrets and variables -> Actions
-
-The workflow definition is located at `.github/workflows/fx-notifier.yml`.
-
-## Contributing
-
-Contributions, bug reports and feature requests are welcome. Please open an issue or a pull request.
-
 ## License
 
-MIT - use it, fork it, improve it
+MIT

@@ -1,0 +1,7 @@
+# Normalize line endings for cross-platform tooling and Linux CI entrypoints.
+*.py text eol=lf
+*.sh text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+README.md text eol=lf

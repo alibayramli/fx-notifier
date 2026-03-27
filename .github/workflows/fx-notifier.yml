@@ -1,14 +1,17 @@
 name: FX Notifier
 
 on:
+  pull_request:
   push:
     branches: [main]
   schedule:
-    - cron: "0 16 * * 1-5" # Every weekday at 16:00 UTC
+    - cron: "0 16 * * 1-5"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
-  # FXService configuration (shared between jobs)
   FRANKFURTER_API_URL: https://api.frankfurter.app/latest
   BASE_CURRENCY: EUR
   API_CURRENCIES: USD,HUF
@@ -16,51 +19,43 @@ env:
   USD_AZN_PEG: 1.7
 
 jobs:
-  test:
+  quality:
+    name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
       - name: Run checks
         run: bash scripts/run_checks.sh
 
-  send-notification:
-    if: github.event_name != 'push'
-    needs: test
+  notify:
+    name: Send Notification
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
       - name: Run FX Notifier
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # FX env vars from top-level 'env' are automatically inherited
-        run: python fx_bot.py
+        run: fx-notifier
