@@ -1,3 +1,6 @@
+import pytest
+
+from fx_notifier.domain import FXServiceError
 from fx_notifier.services import format_message
 
 
@@ -31,3 +34,34 @@ def test_format_message(fx_env):
     )
 
     assert message == expected
+
+
+def test_format_message_adds_warning_for_missing_current_rates(monkeypatch, fx_env):
+    monkeypatch.setenv("REPORT_CURRENCIES", "USD,HUF")
+
+    message = format_message(
+        {
+            "amount": 1.0,
+            "base": "EUR",
+            "date": "2024-07-26",
+            "rates": {
+                "USD": 1.088,
+            },
+        }
+    )
+
+    assert "<i>Warning: Missing current rates for: HUF</i>" in message
+
+
+def test_format_message_raises_when_no_reportable_rows(monkeypatch, fx_env):
+    monkeypatch.setenv("REPORT_CURRENCIES", "USD")
+
+    with pytest.raises(FXServiceError, match="No reportable FX rates available to format"):
+        format_message(
+            {
+                "amount": 1.0,
+                "base": "EUR",
+                "date": "2024-07-26",
+                "rates": {},
+            }
+        )

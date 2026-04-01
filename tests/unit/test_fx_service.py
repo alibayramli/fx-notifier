@@ -36,7 +36,7 @@ def test_get_fx_rates_retries_request_errors(mock_get, fx_env):
         "rates": {"USD": 1.088, "HUF": 393.4},
     }
     mock_response.raise_for_status.return_value = None
-    mock_get.side_effect = [requests.RequestException("temp"), mock_response]
+    mock_get.side_effect = [requests.ConnectionError("temp"), mock_response]
 
     service = FXService.from_env()
     rates_data = service.get_fx_rates(retries=2, backoff_seconds=0)
@@ -81,6 +81,22 @@ def test_get_fx_rates_missing_rates_field_raises(mock_get, fx_env):
     service = FXService.from_env()
     with pytest.raises(FXServiceError, match="missing 'rates'"):
         service.get_fx_rates()
+
+
+@patch("fx_notifier.infrastructure.frankfurter.requests.get")
+def test_get_fx_rates_does_not_retry_non_transient_http_error(mock_get, fx_env):
+    mock_response = Mock(status_code=400)
+    mock_response.raise_for_status.side_effect = requests.HTTPError(
+        "bad request",
+        response=mock_response,
+    )
+    mock_get.return_value = mock_response
+
+    service = FXService.from_env()
+    with pytest.raises(requests.HTTPError):
+        service.get_fx_rates(retries=3, backoff_seconds=0)
+
+    assert mock_get.call_count == 1
 
 
 def test_from_env_invalid_peg_raises_config_error(monkeypatch, fx_env):

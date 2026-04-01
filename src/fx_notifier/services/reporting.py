@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from html import escape
 from typing import Any
 
+from fx_notifier.domain.errors import FXServiceError
 from fx_notifier.services.fx import FXService
 
 JSONDict = dict[str, Any]
@@ -51,18 +54,22 @@ def format_message(
     rates_data: JSONDict,
     service: FXService | None = None,
     performance_by_currency: dict[str, float | None] | None = None,
+    warnings: Sequence[str] | None = None,
 ) -> str:
     service = service or FXService.from_env()
     performance_by_currency = performance_by_currency or {}
+    warning_lines = list(warnings or [])
 
-    date_text = rates_data.get("date", "N/A")
+    date_text = escape(str(rates_data.get("date", "N/A")))
     normalized = service.normalize_rates(rates_data)
     rate_header = f"1 {service.base_currency}"
     rows: list[tuple[str, str, str]] = []
+    missing_currencies: list[str] = []
 
     for currency in service.report_currencies:
         value = normalized.get(currency)
         if value is None:
+            missing_currencies.append(currency)
             continue
 
         rows.append(
@@ -73,13 +80,23 @@ def format_message(
             )
         )
 
+    if missing_currencies:
+        warning_lines.append(
+            f"Missing current rates for: {', '.join(missing_currencies)}"
+        )
+
+    if not rows:
+        raise FXServiceError("No reportable FX rates available to format")
+
     pair_width = max([len("Pair"), *[len(pair) for pair, _, _ in rows]])
     rate_width = max([len(rate_header), *[len(rate) for _, rate, _ in rows]])
 
     lines = [
-        f"<b>{service.base_currency} FX Update</b> {date_text}",
-        "<pre>",
+        f"<b>{escape(service.base_currency)} FX Update</b> {date_text}",
     ]
+    for warning in warning_lines:
+        lines.append(f"<i>Warning: {escape(warning)}</i>")
+    lines.append("<pre>")
     lines.append(
         f"{'Pair':<{pair_width}}  {rate_header:>{rate_width}}  {'Perf'}"
     )

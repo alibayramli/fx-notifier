@@ -4,8 +4,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import telegram
 
+from fx_notifier.config import TelegramSettings
 from fx_notifier.domain import ConfigError
-from fx_notifier.infrastructure import send_telegram_message
+from fx_notifier.infrastructure import TelegramNotifier, send_telegram_message
 
 
 def test_send_telegram_message_missing_env_vars(monkeypatch):
@@ -41,3 +42,23 @@ def test_send_telegram_message_retries_on_telegram_error(mock_bot_cls, monkeypat
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
+
+
+@patch("fx_notifier.infrastructure.telegram.telegram.Bot")
+def test_send_telegram_message_does_not_retry_non_transient_errors(mock_bot_cls):
+    mock_bot = Mock()
+    mock_bot.send_message = AsyncMock(
+        side_effect=telegram.error.BadRequest("bad request")
+    )
+    mock_bot_cls.return_value = mock_bot
+
+    notifier = TelegramNotifier(
+        settings=TelegramSettings(bot_token="token", chat_id="chat"),
+    )
+
+    async def runner():
+        with pytest.raises(telegram.error.BadRequest):
+            await notifier.send_message("hello", retries=3, backoff_seconds=0)
+
+    asyncio.run(runner())
+    assert mock_bot.send_message.call_count == 1

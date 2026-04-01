@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from dataclasses import dataclass
+from datetime import timedelta
 
 import telegram
 
@@ -25,7 +26,6 @@ class TelegramNotifier:
     ) -> None:
         bot = telegram.Bot(token=self.settings.bot_token)
         attempts = max(1, retries)
-        last_error: Exception | None = None
 
         for attempt in range(1, attempts + 1):
             try:
@@ -39,13 +39,32 @@ class TelegramNotifier:
                     await send_result
                 return
             except telegram.error.TelegramError as exc:
-                last_error = exc
+                if attempt >= attempts or not self._should_retry_error(exc):
+                    raise
 
-            if attempt < attempts:
-                await asyncio.sleep(backoff_seconds * attempt)
+                delay = backoff_seconds * attempt
+                if isinstance(exc, telegram.error.RetryAfter):
+                    retry_after = exc.retry_after
+                    if isinstance(retry_after, timedelta):
+                        delay = max(delay, retry_after.total_seconds())
+                    else:
+                        delay = max(delay, float(retry_after))
+                await asyncio.sleep(delay)
 
-        if last_error is not None:
-            raise last_error
+        raise telegram.error.TelegramError("Failed to send Telegram message")
+
+    @staticmethod
+    def _should_retry_error(exc: telegram.error.TelegramError) -> bool:
+        if isinstance(exc, telegram.error.BadRequest):
+            return False
+        return isinstance(
+            exc,
+            (
+                telegram.error.NetworkError,
+                telegram.error.RetryAfter,
+                telegram.error.TimedOut,
+            ),
+        )
 
 
 async def send_telegram_message(
