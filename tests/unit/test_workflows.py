@@ -50,9 +50,7 @@ def test_run_notification_workflow_surfaces_performance_warning(fx_env):
             self.messages.append(message)
 
     notifier = FakeNotifier()
-    message = asyncio.run(
-        run_notification_workflow(service=service, notifier=notifier)
-    )
+    message = asyncio.run(run_notification_workflow(service=service, notifier=notifier))
 
     assert PERFORMANCE_WARNING in message
     assert notifier.messages == [message]

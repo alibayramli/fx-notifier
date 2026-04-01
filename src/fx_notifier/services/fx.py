@@ -118,9 +118,7 @@ class FXService:
         report_currencies: Iterable[str] | None = None,
     ) -> dict[str, float]:
         active_report_currencies = (
-            tuple(report_currencies)
-            if report_currencies is not None
-            else self.report_currencies
+            tuple(report_currencies) if report_currencies is not None else self.report_currencies
         )
 
         rates: dict[str, float] = {}

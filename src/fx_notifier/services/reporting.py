@@ -8,9 +8,9 @@ from fx_notifier.domain.errors import FXServiceError
 from fx_notifier.services.fx import FXService
 
 JSONDict = dict[str, Any]
-GREEN_INDICATOR = "\U0001F7E2"
-RED_INDICATOR = "\U0001F534"
-NEUTRAL_INDICATOR = "\u26AA"
+GREEN_INDICATOR = "\U0001f7e2"
+RED_INDICATOR = "\U0001f534"
+NEUTRAL_INDICATOR = "\u26aa"
 
 
 def format_rate(value: float) -> str:
@@ -81,9 +81,7 @@ def format_message(
         )
 
     if missing_currencies:
-        warning_lines.append(
-            f"Missing current rates for: {', '.join(missing_currencies)}"
-        )
+        warning_lines.append(f"Missing current rates for: {', '.join(missing_currencies)}")
 
     if not rows:
         raise FXServiceError("No reportable FX rates available to format")
@@ -97,13 +95,9 @@ def format_message(
     for warning in warning_lines:
         lines.append(f"<i>Warning: {escape(warning)}</i>")
     lines.append("<pre>")
-    lines.append(
-        f"{'Pair':<{pair_width}}  {rate_header:>{rate_width}}  {'Perf'}"
-    )
+    lines.append(f"{'Pair':<{pair_width}}  {rate_header:>{rate_width}}  {'Perf'}")
     for pair, rate_text, change_text in rows:
-        lines.append(
-            f"{pair:<{pair_width}}  {rate_text:>{rate_width}}  {change_text}"
-        )
+        lines.append(f"{pair:<{pair_width}}  {rate_text:>{rate_width}}  {change_text}")
     lines.append("</pre>")
 
     return "\n".join(lines)

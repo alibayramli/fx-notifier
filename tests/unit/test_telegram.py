@@ -26,9 +26,7 @@ def test_send_telegram_message_retries_on_telegram_error(mock_bot_cls, monkeypat
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "chat")
 
     mock_bot = Mock()
-    mock_bot.send_message = AsyncMock(
-        side_effect=[telegram.error.TimedOut("timeout"), None]
-    )
+    mock_bot.send_message = AsyncMock(side_effect=[telegram.error.TimedOut("timeout"), None])
     mock_bot_cls.return_value = mock_bot
 
     async def runner():
@@ -47,9 +45,7 @@ def test_send_telegram_message_retries_on_telegram_error(mock_bot_cls, monkeypat
 @patch("fx_notifier.infrastructure.telegram.telegram.Bot")
 def test_send_telegram_message_does_not_retry_non_transient_errors(mock_bot_cls):
     mock_bot = Mock()
-    mock_bot.send_message = AsyncMock(
-        side_effect=telegram.error.BadRequest("bad request")
-    )
+    mock_bot.send_message = AsyncMock(side_effect=telegram.error.BadRequest("bad request"))
     mock_bot_cls.return_value = mock_bot
 
     notifier = TelegramNotifier(

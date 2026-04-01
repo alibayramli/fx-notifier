@@ -15,8 +15,8 @@ def test_format_message(fx_env):
         },
     }
 
-    green_indicator = "\U0001F7E2"
-    red_indicator = "\U0001F534"
+    green_indicator = "\U0001f7e2"
+    red_indicator = "\U0001f534"
 
     message = format_message(
         rates_data,

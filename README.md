@@ -51,6 +51,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .[dev]
+pre-commit install
 ```
 
 Windows PowerShell:
@@ -60,6 +61,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e .[dev]
+pre-commit install
 ```
 
 For runtime-only installation:
@@ -113,6 +115,13 @@ Windows PowerShell:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_checks.ps1
 ```
+
+## Formatting
+
+- Python formatting and import cleanup are enforced by `ruff`.
+- `.editorconfig` keeps line endings, final newlines, and trailing whitespace consistent across editors.
+- `.vscode/settings.json` enables format-on-save for Python with the Ruff extension.
+- `.pre-commit-config.yaml` runs formatting fixes before each commit after `pre-commit install`.
 
 ## GitHub Actions
 
