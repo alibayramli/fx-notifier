@@ -21,7 +21,7 @@ def build_performance_by_currency(
     if not current_date:
         return {}
 
-    normalized = service.normalize_rates(rates_data)
+    current_rates = service.normalize_rates(rates_data)
     previous_rates = service.get_previous_rates(service.report_currencies, current_date)
 
     if "AZN" in service.report_currencies and "USD" in previous_rates:
@@ -30,7 +30,7 @@ def build_performance_by_currency(
     performance_by_currency: dict[str, float | None] = {}
     for currency in service.report_currencies:
         performance_by_currency[currency] = calculate_currency_performance(
-            normalized.get(currency),
+            current_rates.get(currency),
             previous_rates.get(currency),
         )
 

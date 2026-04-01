@@ -21,12 +21,12 @@ def test_format_message(fx_env):
     )
 
     expected = (
-        "<b>EUR FX Update</b> <code>2024-07-26</code>\n"
+        "<b>EUR FX Update</b> 2024-07-26\n"
         "<pre>\n"
-        "CCY   1 EUR  Perf (CCY vs EUR)\n"
-        f"USD   1.088  {green_indicator} +0.28%\n"
-        f"HUF   393.4  {red_indicator} -0.33%\n"
-        f"AZN  1.8496  {green_indicator} +0.28%\n"
+        "Pair      1 EUR  Perf\n"
+        f"EUR/USD   1.088  {green_indicator} +0.28%\n"
+        f"EUR/HUF   393.4  {red_indicator} -0.33%\n"
+        f"EUR/AZN  1.8496  {green_indicator} +0.28%\n"
         "</pre>"
     )
 

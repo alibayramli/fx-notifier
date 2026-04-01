@@ -14,6 +14,10 @@ def format_rate(value: float) -> str:
     return f"{value:.6f}".rstrip("0").rstrip(".")
 
 
+def format_pair(base_currency: str, quote_currency: str) -> str:
+    return f"{base_currency}/{quote_currency}"
+
+
 def format_percentage_change(change_pct: float | None) -> str:
     if change_pct is None:
         return f"{NEUTRAL_INDICATOR} n/a"
@@ -40,7 +44,7 @@ def calculate_currency_performance(
     if current_rate == 0 or previous_rate == 0:
         return None
 
-    return ((previous_rate / current_rate) - 1) * 100
+    return ((current_rate / previous_rate) - 1) * 100
 
 
 def format_message(
@@ -63,25 +67,25 @@ def format_message(
 
         rows.append(
             (
-                currency,
+                format_pair(service.base_currency, currency),
                 format_rate(value),
                 format_percentage_change(performance_by_currency.get(currency)),
             )
         )
 
-    currency_width = max([len("CCY"), *[len(currency) for currency, _, _ in rows]])
+    pair_width = max([len("Pair"), *[len(pair) for pair, _, _ in rows]])
     rate_width = max([len(rate_header), *[len(rate) for _, rate, _ in rows]])
 
     lines = [
-        f"<b>{service.base_currency} FX Update</b> <code>{date_text}</code>",
+        f"<b>{service.base_currency} FX Update</b> {date_text}",
         "<pre>",
     ]
     lines.append(
-        f"{'CCY':<{currency_width}}  {rate_header:>{rate_width}}  {'Perf (CCY vs EUR)'}"
+        f"{'Pair':<{pair_width}}  {rate_header:>{rate_width}}  {'Perf'}"
     )
-    for currency, rate_text, change_text in rows:
+    for pair, rate_text, change_text in rows:
         lines.append(
-            f"{currency:<{currency_width}}  {rate_text:>{rate_width}}  {change_text}"
+            f"{pair:<{pair_width}}  {rate_text:>{rate_width}}  {change_text}"
         )
     lines.append("</pre>")
 

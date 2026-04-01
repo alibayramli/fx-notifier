@@ -130,6 +130,8 @@ class FXService:
             except (TypeError, ValueError) as exc:
                 raise FXServiceError(f"Invalid rate for {currency}: {value!r}") from exc
 
+        rates[self.base_currency] = 1.0
+
         if "AZN" in active_report_currencies:
             rates["AZN"] = self.derive_azn_rate(rates)
 

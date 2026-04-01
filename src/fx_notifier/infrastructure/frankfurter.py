@@ -50,7 +50,7 @@ class FrankfurterClient:
             dict.fromkeys(
                 currency
                 for currency in quote_currencies
-                if currency and currency != "AZN"
+                if currency and currency not in {"AZN", self.base_currency}
             )
         )
         if not currencies:
